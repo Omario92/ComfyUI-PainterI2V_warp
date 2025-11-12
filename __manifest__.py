@@ -10,6 +10,11 @@ MANIFEST = {
             "category": "conditioning/video_models",
             "display_name": "🎨 PainterI2V (Wan2.2)",
             "description": "增强版图生视频，解决慢动作问题"
+        },
+        "PainterI2VWanVideoWrapper": {
+            "category": "conditioning/video_models",
+            "display_name": "🎨 PainterI2V WanVideoWrapper Bridge",
+            "description": "在 WanVideoWrapper 工作流中注入 PainterI2V 增强逻辑"
         }
     }
 }

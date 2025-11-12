@@ -68,6 +68,14 @@ git clone https://github.com/princepainter/ComfyUI-PainterI2V.git
 在工作流中将 `WanImageToVideo` 替换为 `PainterI2V`
 ![替换原节点](image/QQ截图20251110095134.jpg)
 
+### WanVideoWrapper 集成
+
+- 在使用 [ComfyUI-WanVideoWrapper](https://github.com/kijai/ComfyUI-WanVideoWrapper) 的工作流中，
+  可在其输出的 payload 后串联 `PainterI2V WanVideoWrapper Bridge` 节点。
+- 该节点会自动读取 payload 中的 `positive`/`negative`/`vae` 等信息并注入 PainterI2V 的运动增强逻辑，
+  同时保持原有的 payload 结构，便于继续连接官方 Wrapper 节点。
+- 可额外输入 `start_image` 或 `clip_vision_output` 来覆盖 payload 中的默认值。
+
 ### 参数设置
 
 - `motion_amplitude`: 1.15（推荐起始值）
