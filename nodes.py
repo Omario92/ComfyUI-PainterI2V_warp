@@ -186,16 +186,51 @@ class PainterI2VWanVideoWrapper:
                 "inject_cond_latent": ("BOOLEAN", {"default": True}),
             },
             "optional": {
-                "wan_wrapper_payload": ("ANY",),
-                "positive": ("CONDITIONING",),
-                "negative": ("CONDITIONING",),
-                "vae": ("VAE",),
-                "width": ("INT", {"default": 832, "min": 16, "max": 4096, "step": 16}),
-                "height": ("INT", {"default": 480, "min": 16, "max": 4096, "step": 16}),
-                "length": ("INT", {"default": 81, "min": 1, "max": 4096, "step": 4}),
-                "batch_size": ("INT", {"default": 1, "min": 1, "max": 4096}),
-                "start_image": ("IMAGE",),
-                "clip_vision_output": ("CLIP_VISION_OUTPUT",),
+                "wan_wrapper_payload": ("ANY", {"forceInput": True}),
+                "positive": ("CONDITIONING", {"forceInput": True}),
+                "negative": ("CONDITIONING", {"forceInput": True}),
+                "vae": ("VAE", {"forceInput": True}),
+                "width": (
+                    "INT",
+                    {
+                        "default": 832,
+                        "min": 16,
+                        "max": 4096,
+                        "step": 16,
+                        "forceInput": True,
+                    },
+                ),
+                "height": (
+                    "INT",
+                    {
+                        "default": 480,
+                        "min": 16,
+                        "max": 4096,
+                        "step": 16,
+                        "forceInput": True,
+                    },
+                ),
+                "length": (
+                    "INT",
+                    {
+                        "default": 81,
+                        "min": 1,
+                        "max": 4096,
+                        "step": 4,
+                        "forceInput": True,
+                    },
+                ),
+                "batch_size": (
+                    "INT",
+                    {
+                        "default": 1,
+                        "min": 1,
+                        "max": 4096,
+                        "forceInput": True,
+                    },
+                ),
+                "start_image": ("IMAGE", {"forceInput": True}),
+                "clip_vision_output": ("CLIP_VISION_OUTPUT", {"forceInput": True}),
             },
         }
 
@@ -229,54 +264,68 @@ class PainterI2VWanVideoWrapper:
             _ensure_mapping(wan_wrapper_payload) if wan_wrapper_payload is not None else {}
         )
 
-        def _get_config_value(override, keys, *, required=True, default=None):
+        missing_fields: list[str] = []
+
+        def _resolve(name, override, keys, *, required=True, default=None):
             if override is not None:
                 return override
             if payload_dict:
-                return _get_first_available(
-                    payload_dict,
-                    keys,
-                    required=required,
-                    default=default,
-                )
-            if required:
-                raise KeyError(
-                    "PainterI2V WanVideoWrapper Bridge is missing required configuration"
-                )
+                for key in keys:
+                    if key in payload_dict and payload_dict[key] is not None:
+                        return payload_dict[key]
+            if required and default is None:
+                missing_fields.append(name)
             return default
 
-        try:
-            width = _get_config_value(width, ("width", "video_width", "latent_width"))
-            height = _get_config_value(height, ("height", "video_height", "latent_height"))
-            length = _get_config_value(
-                length,
-                ("length", "video_length", "frames", "frame_count"),
-            )
-            batch_size = _get_config_value(
-                batch_size,
-                ("batch_size", "video_batch_size", "latent_batch_size"),
-                required=False,
-                default=1,
-            )
+        width = _resolve(
+            "width",
+            width,
+            ("width", "video_width", "latent_width"),
+            default=832,
+        )
+        height = _resolve(
+            "height",
+            height,
+            ("height", "video_height", "latent_height"),
+            default=480,
+        )
+        length = _resolve(
+            "length",
+            length,
+            ("length", "video_length", "frames", "frame_count"),
+            default=81,
+        )
+        batch_size = _resolve(
+            "batch_size",
+            batch_size,
+            ("batch_size", "video_batch_size", "latent_batch_size"),
+            required=False,
+            default=1,
+        )
 
-            positive = _get_config_value(
-                positive,
-                ("positive", "positive_conditioning", "pos"),
-            )
-            negative = _get_config_value(
-                negative,
-                ("negative", "negative_conditioning", "neg"),
-            )
-            vae = _get_config_value(vae, ("vae", "video_vae"))
-        except KeyError as exc:
+        positive = _resolve(
+            "positive conditioning",
+            positive,
+            ("positive", "positive_conditioning", "pos"),
+        )
+        negative = _resolve(
+            "negative conditioning",
+            negative,
+            ("negative", "negative_conditioning", "neg"),
+        )
+        vae = _resolve("vae", vae, ("vae", "video_vae"))
+
+        if missing_fields:
             if wan_wrapper_payload is None:
+                missing = ", ".join(missing_fields)
                 raise KeyError(
-                    "PainterI2V WanVideoWrapper Bridge requires either a WanVideoWrapper payload "
-                    "or explicit positive/negative/vae/size inputs"
-                ) from exc
+                    "PainterI2V WanVideoWrapper Bridge is missing the following inputs: "
+                    f"{missing}. Connect them directly or supply a WanVideoWrapper payload."
+                )
             raise KeyError(
-                "WanVideoWrapper payload is missing required Wan video fields"
-            ) from exc
+                "WanVideoWrapper payload is missing required Wan video fields: "
+                + ", ".join(missing_fields)
+            )
 
         payload_start_image = _get_first_available(
             payload_dict,
@@ -338,6 +387,11 @@ class PainterI2VWanVideoWrapper:
             "latent": latent_dict,
             "latents": latent_dict,
             "motion_amplitude": motion_amplitude,
+            "width": width,
+            "height": height,
+            "length": length,
+            "batch_size": batch_size,
+            "vae": vae,
         }
 
         if inject_cond_latent:
