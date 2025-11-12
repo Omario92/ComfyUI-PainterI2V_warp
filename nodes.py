@@ -182,11 +182,18 @@ class PainterI2VWanVideoWrapper:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "wan_wrapper_payload": ("ANY",),
                 "motion_amplitude": ("FLOAT", {"default": 1.15, "min": 1.0, "max": 2.0, "step": 0.05}),
                 "inject_cond_latent": ("BOOLEAN", {"default": True}),
             },
             "optional": {
+                "wan_wrapper_payload": ("ANY",),
+                "positive": ("CONDITIONING",),
+                "negative": ("CONDITIONING",),
+                "vae": ("VAE",),
+                "width": ("INT", {"default": 832, "min": 16, "max": 4096, "step": 16}),
+                "height": ("INT", {"default": 480, "min": 16, "max": 4096, "step": 16}),
+                "length": ("INT", {"default": 81, "min": 1, "max": 4096, "step": 4}),
+                "batch_size": ("INT", {"default": 1, "min": 1, "max": 4096}),
                 "start_image": ("IMAGE",),
                 "clip_vision_output": ("CLIP_VISION_OUTPUT",),
             },
@@ -205,35 +212,68 @@ class PainterI2VWanVideoWrapper:
 
     def execute(
         self,
-        wan_wrapper_payload,
         motion_amplitude=1.15,
         inject_cond_latent=True,
+        wan_wrapper_payload=None,
+        positive=None,
+        negative=None,
+        vae=None,
+        width=None,
+        height=None,
+        length=None,
+        batch_size=None,
         start_image=None,
         clip_vision_output=None,
     ):
-        payload_dict = _ensure_mapping(wan_wrapper_payload)
+        payload_dict = (
+            _ensure_mapping(wan_wrapper_payload) if wan_wrapper_payload is not None else {}
+        )
+
+        def _get_config_value(override, keys, *, required=True, default=None):
+            if override is not None:
+                return override
+            if payload_dict:
+                return _get_first_available(
+                    payload_dict,
+                    keys,
+                    required=required,
+                    default=default,
+                )
+            if required:
+                raise KeyError(
+                    "PainterI2V WanVideoWrapper Bridge is missing required configuration"
+                )
+            return default
 
         try:
-            width = _get_first_available(payload_dict, ("width", "video_width", "latent_width"))
-            height = _get_first_available(payload_dict, ("height", "video_height", "latent_height"))
-            length = _get_first_available(payload_dict, ("length", "video_length", "frames", "frame_count"))
-            batch_size = _get_first_available(
-                payload_dict,
+            width = _get_config_value(width, ("width", "video_width", "latent_width"))
+            height = _get_config_value(height, ("height", "video_height", "latent_height"))
+            length = _get_config_value(
+                length,
+                ("length", "video_length", "frames", "frame_count"),
+            )
+            batch_size = _get_config_value(
+                batch_size,
                 ("batch_size", "video_batch_size", "latent_batch_size"),
                 required=False,
                 default=1,
             )
 
-            positive = _get_first_available(
-                payload_dict,
+            positive = _get_config_value(
+                positive,
                 ("positive", "positive_conditioning", "pos"),
             )
-            negative = _get_first_available(
-                payload_dict,
+            negative = _get_config_value(
+                negative,
                 ("negative", "negative_conditioning", "neg"),
             )
-            vae = _get_first_available(payload_dict, ("vae", "video_vae"))
+            vae = _get_config_value(vae, ("vae", "video_vae"))
         except KeyError as exc:
+            if wan_wrapper_payload is None:
+                raise KeyError(
+                    "PainterI2V WanVideoWrapper Bridge requires either a WanVideoWrapper payload "
+                    "or explicit positive/negative/vae/size inputs"
+                ) from exc
             raise KeyError(
                 "WanVideoWrapper payload is missing required Wan video fields"
             ) from exc
