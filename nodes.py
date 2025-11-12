@@ -184,6 +184,7 @@ class PainterI2VWanVideoWrapper:
             "required": {
                 "wan_wrapper_payload": ("ANY",),
                 "motion_amplitude": ("FLOAT", {"default": 1.15, "min": 1.0, "max": 2.0, "step": 0.05}),
+                "inject_cond_latent": ("BOOLEAN", {"default": True}),
             },
             "optional": {
                 "start_image": ("IMAGE",),
@@ -191,12 +192,13 @@ class PainterI2VWanVideoWrapper:
             },
         }
 
-    RETURN_TYPES = ("ANY", "CONDITIONING", "CONDITIONING", "LATENT")
+    RETURN_TYPES = ("ANY", "CONDITIONING", "CONDITIONING", "LATENT", "ANY")
     RETURN_NAMES = (
         "wan_wrapper_payload",
         "positive",
         "negative",
         "latent",
+        "cond_latent",
     )
     FUNCTION = "execute"
     CATEGORY = "conditioning/video_models"
@@ -205,6 +207,7 @@ class PainterI2VWanVideoWrapper:
         self,
         wan_wrapper_payload,
         motion_amplitude=1.15,
+        inject_cond_latent=True,
         start_image=None,
         clip_vision_output=None,
     ):
@@ -288,7 +291,33 @@ class PainterI2VWanVideoWrapper:
         if effective_clip_vision is not None:
             updated_payload["clip_vision_output"] = effective_clip_vision
 
-        return updated_payload, positive, negative, latent_dict
+        cond_latent = {
+            "name": "PainterI2V",
+            "positive": positive,
+            "negative": negative,
+            "latent": latent_dict,
+            "latents": latent_dict,
+            "motion_amplitude": motion_amplitude,
+        }
+
+        if inject_cond_latent:
+            existing_cond_latents = payload_dict.get("add_cond_latents")
+            if existing_cond_latents is None:
+                cond_latent_list = []
+            elif isinstance(existing_cond_latents, list):
+                cond_latent_list = list(existing_cond_latents)
+            else:
+                cond_latent_list = [existing_cond_latents]
+
+            cond_latent_list = [
+                entry
+                for entry in cond_latent_list
+                if not isinstance(entry, Mapping) or entry.get("name") != "PainterI2V"
+            ]
+            cond_latent_list.append(cond_latent)
+            updated_payload["add_cond_latents"] = cond_latent_list
+
+        return updated_payload, positive, negative, latent_dict, cond_latent
 
 
 class PainterI2VExtension(ComfyExtension):

@@ -74,6 +74,8 @@ git clone https://github.com/princepainter/ComfyUI-PainterI2V.git
   可在其输出的 payload 后串联 `PainterI2V WanVideoWrapper Bridge` 节点。
 - 该节点会自动读取 payload 中的 `positive`/`negative`/`vae` 等信息并注入 PainterI2V 的运动增强逻辑，
   同时保持原有的 payload 结构，便于继续连接官方 Wrapper 节点。
+- 节点新增的 `cond_latent` 输出可直接连接到 `WanVideo ImageToVideo Encode` 的 `add_cond_latents` 输入，从而与官方节点的潜变量强度调节流程兼容。
+- 如需保留原有的 `add_cond_latents` 列表，可关闭 `inject_cond_latent` 复选框，手动将 `cond_latent` 输出接入其它节点。
 - 可额外输入 `start_image` 或 `clip_vision_output` 来覆盖 payload 中的默认值。
 
 ### 参数设置
